@@ -28,14 +28,14 @@ warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
 # Load and validate data
 try:
-    df = pd.read_csv(DATA_PATH, parse_dates=["Date"], dtype={"Current Stock Level": float, "Remaining Stock Level": float})
+    df = pd.read_csv(DATA_PATH, parse_dates=["Date"], dtype={"Opening Stock Level": float, "Remaining Stock Level": float})
     PRODUCT_IDS = sorted(df["product_id"].dropna().unique())
     logger.info(f"Dataset loaded. Columns: {df.columns}")
     logger.info(f"Sample data:\n{df.head().to_string()}")
     for pid in PRODUCT_IDS:
-        stock_data = df[df["product_id"] == pid][["Date", "Current Stock Level", "Remaining Stock Level"]].tail(5)
-        if stock_data["Current Stock Level"].isna().any() or (stock_data["Current Stock Level"] <= 0).any():
-            logger.warning(f"Invalid current stock levels for {pid}:\n{stock_data.to_string()}")
+        stock_data = df[df["product_id"] == pid][["Date", "Opening Stock Level", "Remaining Stock Level"]].tail(5)
+        if stock_data["Opening Stock Level"].isna().any() or (stock_data["Opening Stock Level"] <= 0).any():
+            logger.warning(f"Invalid Opening Stock Levels for {pid}:\n{stock_data.to_string()}")
         elif stock_data["Remaining Stock Level"].isna().any() or (stock_data["Remaining Stock Level"] < 0).any():
             logger.warning(f"Invalid remaining stock levels for {pid}:\n{stock_data.to_string()}")
         else:
@@ -121,32 +121,32 @@ def detect_stockout(product_id, forecast_df):
     end_date = forecast_df["Date"].max()
     
     # Resample historical data
-    inventory = history[["Date", "Current Stock Level", "Remaining Stock Level"]].set_index("Date")
+    inventory = history[["Date", "Opening Stock Level", "Remaining Stock Level"]].set_index("Date")
     inventory = inventory.resample("D").asfreq().fillna(method="ffill").reset_index()
     inventory = inventory[(inventory["Date"] >= start_date) & (inventory["Date"] <= end_date)]
 
     if inventory.empty:
-        latest_stock = history["Current Stock Level"].iloc[-1] if not history["Current Stock Level"].empty else 0
+        latest_stock = history["Opening Stock Level"].iloc[-1] if not history["Opening Stock Level"].empty else 0
         latest_remaining = history["Remaining Stock Level"].iloc[-1] if not history["Remaining Stock Level"].empty else 0
         dates = pd.date_range(start=start_date, end=end_date)
         inventory = pd.DataFrame({
             "Date": dates,
-            "Current Stock Level": latest_stock,
+            "Opening Stock Level": latest_stock,
             "Remaining Stock Level": latest_remaining
         })
         logger.warning(f"No stock data for {product_id} in the range {start_date} to {end_date}. Using latest available stock levels: Current={latest_stock}, Remaining={latest_remaining}")
 
     merged = forecast_df.merge(inventory, on="Date", how="left")
 
-    latest_stock = history["Current Stock Level"].iloc[-1] if not history["Current Stock Level"].empty else 0
+    latest_stock = history["Opening Stock Level"].iloc[-1] if not history["Opening Stock Level"].empty else 0
     latest_remaining = history["Remaining Stock Level"].iloc[-1] if not history["Remaining Stock Level"].empty else 0
-    merged["Current Stock Level"] = merged["Current Stock Level"].fillna(latest_stock)
+    merged["Opening Stock Level"] = merged["Opening Stock Level"].fillna(latest_stock)
     merged["Remaining Stock Level"] = merged["Remaining Stock Level"].fillna(latest_remaining)
 
-    if merged["Current Stock Level"].isna().any() or (merged["Current Stock Level"] <= 0).all():
-        logger.warning(f"Invalid current stock levels for {product_id}: {merged['Current Stock Level'].tolist()}")
+    if merged["Opening Stock Level"].isna().any() or (merged["Opening Stock Level"] <= 0).all():
+        logger.warning(f"Invalid Opening Stock Levels for {product_id}: {merged['Opening Stock Level'].tolist()}")
         return {
-            "error": f"Invalid or zero current stock levels for {product_id}. Please update the dataset.",
+            "error": f"Invalid or zero Opening Stock Levels for {product_id}. Please update the dataset.",
             "dates": [], "forecasted_demand": [],
             "current_stock_level": [], "remaining_stock_level": [],
             "stockout": []
@@ -176,12 +176,12 @@ def detect_stockout(product_id, forecast_df):
     merged["Stockout"] = stockout_flags
     merged["Date"] = merged["Date"].dt.strftime("%Y-%m-%d")
 
-    logger.info(f"Merged DataFrame for {product_id}:\n{merged[['Date', 'Current Stock Level', 'Remaining Stock Level', 'Forecasted Demand', 'Stockout']].to_string()}")
+    logger.info(f"Merged DataFrame for {product_id}:\n{merged[['Date', 'Opening Stock Level', 'Remaining Stock Level', 'Forecasted Demand', 'Stockout']].to_string()}")
 
     return {
         "dates": merged["Date"].tolist(),
         "forecasted_demand": merged["Forecasted Demand"].tolist(),
-        "current_stock_level": merged["Current Stock Level"].tolist(),
+        "current_stock_level": merged["Opening Stock Level"].tolist(),
         "remaining_stock_level": merged["Remaining Stock Level"].tolist(),
         "stockout": merged["Stockout"].tolist()
     }, plot_graph(merged, product_id)
@@ -189,7 +189,7 @@ def detect_stockout(product_id, forecast_df):
 def plot_graph(df, product_id):
     plt.figure(figsize=(10, 4))
     plt.plot(df["Date"], df["Forecasted Demand"], label="Forecasted Demand", marker="o")
-    plt.plot(df["Date"], df["Current Stock Level"], label="Current Stock Level", marker="x")
+    plt.plot(df["Date"], df["Opening Stock Level"], label="Opening Stock Level", marker="x")
     plt.plot(df["Date"], df["Remaining Stock Level"], label="Remaining Stock Level", marker="s")
     plt.fill_between(df["Date"], 0, df["Forecasted Demand"], where=df["Stockout"], color="red", alpha=0.3, label="Stock-out Risk")
     plt.title(f"Demand vs Stock - {product_id}")
@@ -267,7 +267,7 @@ async def add_data(req: NewDataRequest):
             "product_id": [req.product_id],
             "Date": [pd.to_datetime(req.date)],
             "Sales Volume": [req.sales_volume],
-            "Current Stock Level": [req.current_stock_level],
+            "Opening Stock Level": [req.current_stock_level],
             "Remaining Stock Level": [req.remaining_stock_level],
             "Reorder Point": [reorder],
             "Lead Time (Days)": [lead_time]

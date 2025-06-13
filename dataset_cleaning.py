@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 # Loading the dataset
-input_path = "/mnt/c/Users/lalit/OneDrive/Desktop/demand stockout app/Cleaned_Complete_Ecommerce_Data.xlsx"
+input_path = "/mnt/c/Users/lalit/OneDrive/Desktop/demand stockout app/Cleaned_Complete_Ecommerce_Data (1).xlsx"
 output_path = "/mnt/c/Users/lalit/OneDrive/Desktop/demand stockout app/cleaned_dataset.csv"
 
 # Reading the CSV file
@@ -14,7 +14,7 @@ except Exception as e:
 
 # Keeping only the required columns
 columns_to_keep = [
-    "product_id", "Date", "Sales Volume", "Current Stock Level",
+    "product_id", "Date", "Sales Volume", "Opening Stock Level",
     "Reorder Point", "Lead Time (Days)", "Stock-out Date", "Remaining Stock Level"
 ]
 df = df[columns_to_keep]
@@ -41,14 +41,14 @@ print(f"Data shape after dropping invalid dates: {df.shape}")
 
 # Ensuring numeric and non-negative values for key columns
 df["Sales Volume"] = pd.to_numeric(df["Sales Volume"], errors="coerce").fillna(0)
-df["Current Stock Level"] = pd.to_numeric(df["Current Stock Level"], errors="coerce").fillna(0)
+df["Opening Stock Level"] = pd.to_numeric(df["Opening Stock Level"], errors="coerce").fillna(0)
 df["Remaining Stock Level"] = pd.to_numeric(df["Remaining Stock Level"], errors="coerce").fillna(0)
 df["Reorder Point"] = pd.to_numeric(df["Reorder Point"], errors="coerce").fillna(0)
 df["Lead Time (Days)"] = pd.to_numeric(df["Lead Time (Days)"], errors="coerce").fillna(0)
 
 # Filtering out rows with negative values (keep Sales Volume >= 0 to retain zero sales)
 df = df[df["Sales Volume"] >= 0]  # Changed from > 0 to >= 0
-df = df[df["Current Stock Level"] >= 0]
+df = df[df["Opening Stock Level"] >= 0]
 df = df[df["Remaining Stock Level"] >= 0]
 df = df[df["Reorder Point"] >= 0]
 df = df[df["Lead Time (Days)"] >= 0]
@@ -56,12 +56,12 @@ df = df[df["Lead Time (Days)"] >= 0]
 # Debug: After filtering non-negative values
 print(f"Data shape after filtering non-negative values: {df.shape}")
 
-# Validate that Remaining Stock Level is less than or equal to Current Stock Level
-invalid_stock_rows = df[df["Remaining Stock Level"] > df["Current Stock Level"]]
+# Validate that Remaining Stock Level is less than or equal to Opening Stock Level
+invalid_stock_rows = df[df["Remaining Stock Level"] > df["Opening Stock Level"]]
 if not invalid_stock_rows.empty:
-    print(f"⚠️ Warning: Found {len(invalid_stock_rows)} rows where Remaining Stock Level > Current Stock Level:")
-    print(invalid_stock_rows[["product_id", "Date", "Current Stock Level", "Remaining Stock Level"]].to_string())
-    df.loc[df["Remaining Stock Level"] > df["Current Stock Level"], "Remaining Stock Level"] = df["Current Stock Level"]
+    print(f"⚠️ Warning: Found {len(invalid_stock_rows)} rows where Remaining Stock Level > Opening Stock Level:")
+    print(invalid_stock_rows[["product_id", "Date", "Opening Stock Level", "Remaining Stock Level"]].to_string())
+    df.loc[df["Remaining Stock Level"] > df["Opening Stock Level"], "Remaining Stock Level"] = df["Opening Stock Level"]
 
 # Resample data to daily frequency for each product to ensure no gaps
 df_list = []
