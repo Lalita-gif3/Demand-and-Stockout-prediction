@@ -29,7 +29,7 @@ public sealed class StockRecordMap : ClassMap<StockRecord>
     {
         Map(m => m.product_id).Name("product_id");
         Map(m => m.Date).Name("Date");
-        Map(m => m.Current_Stock_Level).Name("Current Stock Level");
+        Map(m => m.Current_Stock_Level).Name("Opening Stock Level");
     }
 }
 
@@ -127,7 +127,7 @@ class Program
             return Results.Ok(productIds.OrderBy(id => id).ToList());
         });
 
-        // Endpoint to fetch current stock level
+        // Endpoint to fetch Opening Stock Level
         app.MapGet("/api/prediction/current-stock/{productId}", (string productId, IConfiguration configuration, HashSet<string> productIds) =>
         {
             if (string.IsNullOrWhiteSpace(productId))
@@ -215,7 +215,7 @@ class Program
                         Console.WriteLine($"\n🔥 Using NON-ZERO record: {nonZeroRecord.Date:yyyy-MM-dd} | Stock: {nonZeroRecord.StockLevel}");
                         return Results.Ok(new
                         {
-                            CurrentStockLevel = nonZeroRecord.StockLevel,
+                            openingStockLevel = nonZeroRecord.StockLevel,
                             Date = nonZeroRecord.Date.ToString("yyyy-MM-dd"),
                             IsMostRecentNonZero = true
                         });
@@ -226,7 +226,7 @@ class Program
                     Console.WriteLine($"\n⚠️ Using MOST RECENT record (zero stock): {mostRecent.Date:yyyy-MM-dd} | Stock: {mostRecent.StockLevel}");
                     return Results.Ok(new
                     {
-                        CurrentStockLevel = mostRecent.StockLevel,
+                        openingStockLevel = mostRecent.StockLevel,
                         Date = mostRecent.Date.ToString("yyyy-MM-dd"),
                         IsMostRecentNonZero = false,
                         Warning = "All stock levels are zero or no non-zero stock found"
